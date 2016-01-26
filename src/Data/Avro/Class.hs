@@ -5,6 +5,8 @@
 module Data.Avro.Class (
     ToAvro(..)
   , FromAvro(..)
+  , flookup
+  , withRecord
   ) where
 
 import Data.Bifunctor
@@ -108,80 +110,86 @@ instance ToAvro AvroType where
   toAvro = id
 
 class FromAvro a where
-  fromAvro :: Monad m => Schema -> AvroType -> m a
+  fromAvro :: Monad m => AvroType -> m a
   fromBinary :: Schema -> Get a
-  fromBinary s = getAvro (toTypeSchema s) >>= fromAvro s
+  fromBinary s = getAvro (toTypeSchema s) >>= fromAvro
 
 instance FromAvro () where
-  fromAvro _ (AvroPrimitive AvroNull) = return ()
-  fromAvro _ r = fail $ "expected () got " ++ show r
+  fromAvro (AvroPrimitive AvroNull) = return ()
+  fromAvro r = fail $ "expected () got " ++ show r
 
 instance FromAvro Bool where
-  fromAvro _ (AvroPrimitive (AvroBool v)) = return v
-  fromAvro _ r = fail $ "expected bool got " ++ show r
+  fromAvro (AvroPrimitive (AvroBool v)) = return v
+  fromAvro r = fail $ "expected bool got " ++ show r
 
 instance FromAvro Int32 where
-  fromAvro _ (AvroPrimitive (AvroInt v)) = return v
-  fromAvro _ r = fail $ "expected int got " ++ show r
+  fromAvro (AvroPrimitive (AvroInt v)) = return v
+  fromAvro r = fail $ "expected int got " ++ show r
 
 instance FromAvro Int64 where
-  fromAvro _ (AvroPrimitive (AvroLong v)) = return v
-  fromAvro _ r = fail $ "expected long got " ++ show r
+  fromAvro (AvroPrimitive (AvroLong v)) = return v
+  fromAvro r = fail $ "expected long got " ++ show r
 
 instance FromAvro Int where
-  fromAvro _ (AvroPrimitive (AvroLong v)) = return (fromIntegral v)
-  fromAvro _ (AvroPrimitive (AvroInt v)) = return (fromIntegral v)
-  fromAvro _ r = fail $ "expected int/long got " ++ show r
+  fromAvro (AvroPrimitive (AvroLong v)) = return (fromIntegral v)
+  fromAvro (AvroPrimitive (AvroInt v)) = return (fromIntegral v)
+  fromAvro r = fail $ "expected int/long got " ++ show r
 
 instance FromAvro Float where
-  fromAvro _ (AvroPrimitive (AvroFloat v)) = return v
-  fromAvro _ r = fail $ "expected float got " ++ show r
+  fromAvro (AvroPrimitive (AvroFloat v)) = return v
+  fromAvro r = fail $ "expected float got " ++ show r
 
 instance FromAvro Double where
-  fromAvro _ (AvroPrimitive (AvroDouble v)) = return v
-  fromAvro _ r = fail $ "expected double got " ++ show r
+  fromAvro (AvroPrimitive (AvroDouble v)) = return v
+  fromAvro r = fail $ "expected double got " ++ show r
 
 instance FromAvro BS.ByteString where
-  fromAvro _ (AvroComplex (AvroNamed _ _ (AvroFixed v))) = return v
-  fromAvro _ (AvroPrimitive (AvroBytes v)) = return (LB.toStrict v)
-  fromAvro _ r = fail $ "expected bytes got " ++ show r
+  fromAvro (AvroComplex (AvroNamed _ _ (AvroFixed v))) = return v
+  fromAvro (AvroPrimitive (AvroBytes v)) = return (LB.toStrict v)
+  fromAvro r = fail $ "expected bytes got " ++ show r
 
 instance FromAvro LB.ByteString where
-  fromAvro _ (AvroComplex (AvroNamed _ _ (AvroFixed v))) = return (LB.fromStrict v)
-  fromAvro _ (AvroPrimitive (AvroBytes v)) = return v
-  fromAvro _ r = fail $ "expected bytes got " ++ show r
+  fromAvro (AvroComplex (AvroNamed _ _ (AvroFixed v))) = return (LB.fromStrict v)
+  fromAvro (AvroPrimitive (AvroBytes v)) = return v
+  fromAvro r = fail $ "expected bytes got " ++ show r
 
 instance FromAvro [Word8] where
-  fromAvro s = fmap BS.unpack . fromAvro s
+  fromAvro = fmap BS.unpack . fromAvro
 
 instance FromAvro T.Text where
-  fromAvro _ (AvroPrimitive (AvroString v)) = return (LT.toStrict v)
-  fromAvro _ r = fail $ "expected string got " ++ show r
+  fromAvro (AvroPrimitive (AvroString v)) = return (LT.toStrict v)
+  fromAvro r = fail $ "expected string got " ++ show r
 
 instance FromAvro LT.Text where
-  fromAvro _ (AvroPrimitive (AvroString v)) = return v
-  fromAvro _ r = fail $ "expected string got " ++ show r
+  fromAvro (AvroPrimitive (AvroString v)) = return v
+  fromAvro r = fail $ "expected string got " ++ show r
 
 instance FromAvro String where
-  fromAvro s = fmap T.unpack . fromAvro s
+  fromAvro = fmap T.unpack . fromAvro
 
 instance FromAvro PrimitiveType where
-  fromAvro _ (AvroPrimitive v) = return v
-  fromAvro _ r = fail $ "expecting primitive got " ++ show r
+  fromAvro (AvroPrimitive v) = return v
+  fromAvro r = fail $ "expecting primitive got " ++ show r
 
 instance FromAvro ComplexType where
-  fromAvro _ (AvroComplex v) = return v
-  fromAvro _ r = fail $ "expecting complex got " ++ show r
+  fromAvro (AvroComplex v) = return v
+  fromAvro r = fail $ "expecting complex got " ++ show r
 
 instance FromAvro AvroType where
-  fromAvro _ = return
+  fromAvro = return
 
 instance ToAvro a => ToAvro (Map.Map T.Text a) where
   avroSchema _ = avroSchema $ AvroMap (undefined :: [V.Vector a])
   toAvro = toAvro . AvroMap . return . V.fromList . map (second toAvro) . Map.toList
 
 instance FromAvro a => FromAvro (Map.Map T.Text a) where
-  fromAvro s@(toTypeSchema -> ComplexSchema (MapSchema ms)) v = do
-    AvroComplex (AvroMap r) <- fromAvro s v
+  fromAvro (AvroComplex (AvroMap r)) = do
     fmap Map.fromList . mapM go . concatMap V.toList $ r
-    where go (x, y) = (x,) <$> fromAvro (plainSchema ms) y
+    where go (x, y) = (x,) <$> fromAvro y
+
+flookup :: (FromAvro r, Monad m) => String -> [(String, AvroType)] -> m r
+flookup s = maybe (fail $ "no field " ++ s) fromAvro . lookup s
+
+withRecord :: Monad m => ([(String, AvroType)] -> m r) -> AvroType -> m r
+withRecord f (AvroComplex (AvroNamed _ _ (AvroRecord r))) = f r
+withRecord _ _ = fail "could not match record type"

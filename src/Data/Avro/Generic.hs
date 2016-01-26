@@ -8,7 +8,7 @@ module Data.Avro.Generic (
   , AvroType(..)
   , putAvro
   , getAvro
-  , toAvroBytes
+  , record
   ) where
 
 import Control.Arrow (arr, (&&&), Kleisli(..))
@@ -131,6 +131,5 @@ getAvro :: TypeSchema -> Get AvroType
 getAvro (PrimitiveSchema s) = AvroPrimitive <$> getAvroPrimitive s
 getAvro (ComplexSchema s) = AvroComplex <$> getAvroComplex s
 
-toAvroBytes :: AvroType -> Maybe LB.ByteString
-toAvroBytes (AvroPrimitive (AvroBytes v)) = Just v
-toAvroBytes _ = Nothing
+record :: String -> Maybe String -> [(String, AvroType)] -> AvroType
+record nm ns = AvroComplex . AvroNamed nm ns . AvroRecord

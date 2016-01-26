@@ -1,5 +1,4 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ViewPatterns #-}
 
 module Data.Avro.Container (
     Magic(..)
@@ -30,7 +29,7 @@ instance ToAvro Magic where
   toAvro = toAvro . AvroNamed "Magic" Nothing . AvroFixed . magicBytes
 
 instance FromAvro Magic where
-  fromAvro s = fmap Magic . fromAvro s
+  fromAvro = fmap Magic . fromAvro
 
 newtype Sync = Sync { syncBytes :: BS.ByteString }
   deriving (Eq, Ord, Show, Read)
@@ -40,7 +39,7 @@ instance ToAvro Sync where
   toAvro = toAvro . AvroNamed "Sync" Nothing . AvroFixed . syncBytes
 
 instance FromAvro Sync where
-  fromAvro s = fmap Sync . fromAvro s
+  fromAvro = fmap Sync . fromAvro
 
 data FileHeader = FileHeader (Map.Map T.Text BS.ByteString) Sync
   deriving (Eq, Show, Read)
@@ -51,21 +50,18 @@ instance ToAvro FileHeader where
     , recordField "meta" (ComplexSchema $ MapSchema (PrimitiveSchema BytesSchema))
     , recordField "sync" (toTypeSchema $ avroSchema (undefined :: Sync))
     ]
-  toAvro (FileHeader m s) = toAvro . AvroNamed "Header" (Just "org.apache.avro.file") . AvroRecord $ [
+  toAvro (FileHeader m s) = record  "Header" (Just "org.apache.avro.file") [
       ("magic", toAvro magic)
     , ("meta", toAvro m)
     , ("sync", toAvro s)
     ]
 
 instance FromAvro FileHeader where
-  fromAvro s@(toTypeSchema -> ComplexSchema (NamedSchema _ _ _ (RecordSchema rs))) v = do
-    AvroNamed _ _ (AvroRecord r) <- fromAvro s v
-    m <- fromAvro (plainSchema . fieldType $ head rs) (snd . head $ r)
+  fromAvro = withRecord $ \r -> do
+    m <- flookup "magic" r
     if m /= magic
       then fail "bad magic"
-      else FileHeader <$>
-            fromAvro (plainSchema . fieldType $ rs !! 1) (snd $ r !! 1)
-        <*> fromAvro (plainSchema . fieldType $ rs !! 2) (snd $ r !! 2)
+      else FileHeader <$> flookup "meta" r <*> flookup "sync" r
 
 data Block = Block Int LB.ByteString Sync
   deriving (Eq, Show, Read)
@@ -76,16 +72,14 @@ instance ToAvro Block where
     , recordField "data" (PrimitiveSchema BytesSchema)
     , recordField "sync" (toTypeSchema $ avroSchema (undefined :: Sync))
     ]
-  toAvro (Block n bs sync) = toAvro . AvroNamed "Block" (Just "org.apache.avro.file") . AvroRecord $ [
+  toAvro (Block n bs sync) = record "Block" (Just "org.apache.avro.file") [
       ("count", toAvro n)
     , ("data", toAvro bs)
     , ("sync", toAvro sync)
     ]
 
 instance FromAvro Block where
-  fromAvro s@(toTypeSchema -> ComplexSchema (NamedSchema _ _ _ (RecordSchema rs))) v = do
-    AvroNamed _ _ (AvroRecord r) <- fromAvro s v
-    Block <$>
-          fromAvro (plainSchema . fieldType $ rs !! 0) (snd $ r !! 0)
-      <*> fromAvro (plainSchema . fieldType $ rs !! 1) (snd $ r !! 1)
-      <*> fromAvro (plainSchema . fieldType $ rs !! 2) (snd $ r !! 2)
+  fromAvro = withRecord $ \r -> Block <$>
+        flookup "count" r
+    <*> flookup "data" r
+    <*> flookup "sync" r
