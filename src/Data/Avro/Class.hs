@@ -93,9 +93,10 @@ instance ToAvro PrimitiveType where
   toAvro = AvroPrimitive
 
 instance ToAvro ComplexType where
-  avroSchema (AvroRecord f) = plainSchema . ComplexSchema $ recordSchema "" Nothing [] (map (recordField "" . toTypeSchema . avroSchema) f)
-  avroSchema (AvroEnum _ f) = plainSchema . ComplexSchema $ enumSchema "" Nothing [] f
-  avroSchema (AvroFixed f) = plainSchema . ComplexSchema $ fixedSchema "" Nothing [] (BS.length f)
+  avroSchema (AvroNamed nm ns r) = plainSchema . ComplexSchema $ case r of
+    AvroRecord f -> recordSchema nm ns [] $ map (\(fn, ft) -> recordField fn (toTypeSchema . avroSchema $ ft)) f
+    AvroEnum _ f -> enumSchema nm ns [] f
+    AvroFixed f -> fixedSchema nm ns [] (BS.length f)
   avroSchema (AvroArray f) = plainSchema . ComplexSchema $ ArraySchema (toTypeSchema . avroSchema . V.head . head $ f)
   avroSchema (AvroMap f) = plainSchema . ComplexSchema $ MapSchema (toTypeSchema . avroSchema . snd . V.head . head $ f)
   avroSchema (AvroUnion _ _ f) = plainSchema . ComplexSchema $ UnionSchema f
@@ -141,12 +142,12 @@ instance FromAvro Double where
   fromAvro _ r = fail $ "expected double got " ++ show r
 
 instance FromAvro BS.ByteString where
-  fromAvro _ (AvroComplex (AvroFixed v)) = return v
+  fromAvro _ (AvroComplex (AvroNamed _ _ (AvroFixed v))) = return v
   fromAvro _ (AvroPrimitive (AvroBytes v)) = return (LB.toStrict v)
   fromAvro _ r = fail $ "expected bytes got " ++ show r
 
 instance FromAvro LB.ByteString where
-  fromAvro _ (AvroComplex (AvroFixed v)) = return (LB.fromStrict v)
+  fromAvro _ (AvroComplex (AvroNamed _ _ (AvroFixed v))) = return (LB.fromStrict v)
   fromAvro _ (AvroPrimitive (AvroBytes v)) = return v
   fromAvro _ r = fail $ "expected bytes got " ++ show r
 

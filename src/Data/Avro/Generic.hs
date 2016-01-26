@@ -1,6 +1,7 @@
 
 module Data.Avro.Generic (
     PrimitiveType(..)
+  , NamedType(..)
   , ComplexType(..)
   , putAvroComplex
   , getAvroComplex
@@ -10,6 +11,7 @@ module Data.Avro.Generic (
   , toAvroBytes
   ) where
 
+import Control.Arrow (arr, (&&&), Kleisli(..))
 import Control.Monad (replicateM)
 import Data.Int
 
@@ -79,28 +81,37 @@ getAvroBlocks g = do
     then return []
     else (v:) <$> getAvroBlocks g
 
-data ComplexType =
-    AvroRecord [AvroType]
+data NamedType =
+    AvroRecord [(String, AvroType)]
   | AvroEnum Int [String]
   | AvroFixed BS.ByteString
+  deriving (Eq, Show, Read)
+
+putAvroNamed :: NamedType -> Put
+putAvroNamed (AvroRecord f) = mapM_ (putAvro . snd) f
+putAvroNamed (AvroEnum e _) = putAvroInt (fromIntegral e)
+putAvroNamed (AvroFixed f) = putByteString f
+
+getAvroNamed :: NamedSchemaType -> Get NamedType
+getAvroNamed (RecordSchema f) = AvroRecord <$> mapM (runKleisli $ arr fieldName &&& Kleisli (getAvro . fieldType)) f
+getAvroNamed (EnumSchema f) = AvroEnum <$> fmap fromIntegral getAvroInt <*> pure f
+getAvroNamed (FixedSchema n) = AvroFixed <$> getByteString n
+
+data ComplexType =
+    AvroNamed String (Maybe String) NamedType
   | AvroArray [V.Vector AvroType]
   | AvroMap [V.Vector AvroKV]
   | AvroUnion Int AvroType [TypeSchema]
   deriving (Eq, Show, Read)
 
 putAvroComplex :: ComplexType -> Put
-putAvroComplex (AvroRecord f) = mapM_ putAvro f
-putAvroComplex (AvroEnum e _) = putAvroInt (fromIntegral e)
-putAvroComplex (AvroFixed f) = putByteString f
+putAvroComplex (AvroNamed _ _ r) = putAvroNamed r
 putAvroComplex (AvroArray b) = putAvroBlocks putAvro b
 putAvroComplex (AvroMap b) = putAvroBlocks putAvroKV b
 putAvroComplex (AvroUnion ix v _) = putAvroInt (fromIntegral ix) >> putAvro v
 
 getAvroComplex :: ComplexSchemaType -> Get ComplexType
-getAvroComplex (NamedSchema _ _ _ r) = case r  of
-  RecordSchema f -> AvroRecord <$> mapM (getAvro . fieldType) f
-  EnumSchema f -> AvroEnum <$> fmap fromIntegral getAvroInt <*> pure f
-  FixedSchema n -> AvroFixed <$> getByteString n
+getAvroComplex (NamedSchema nm ns _ r) = AvroNamed nm ns <$> getAvroNamed r
 getAvroComplex (ArraySchema s) = AvroArray <$> getAvroBlocks (getAvro s)
 getAvroComplex (MapSchema s) = AvroMap <$> getAvroBlocks (getAvroKV s)
 getAvroComplex (UnionSchema s) = do
