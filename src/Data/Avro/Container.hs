@@ -63,8 +63,11 @@ instance FromAvro FileHeader where
       then fail "bad magic"
       else FileHeader <$> flookup "meta" r <*> flookup "sync" r
 
-data Block = Block Int LB.ByteString Sync
-  deriving (Eq, Show, Read)
+data Block = Block {
+    blockCount :: Int
+  , blockData :: LB.ByteString
+  , blockSync :: Sync
+  } deriving (Eq, Show, Read)
 
 instance ToAvro Block where
   avroSchema _ = plainSchema . ComplexSchema $ recordSchema "Block" (Just "org.apache.avro.file") [] [
@@ -79,7 +82,5 @@ instance ToAvro Block where
     ]
 
 instance FromAvro Block where
-  fromAvro = withRecord $ \r -> Block <$>
-        flookup "count" r
-    <*> flookup "data" r
-    <*> flookup "sync" r
+  fromAvro = withRecord $ \r ->
+    Block <$> flookup "count" r <*> flookup "data" r <*> flookup "sync" r
