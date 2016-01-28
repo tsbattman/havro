@@ -63,20 +63,20 @@ floatToIntBits x
   | isInfinite x && x > 0 = 0x7F800000
   | isInfinite x && x < 0 = 0xFF800000
   | isNaN x = 0x7FC00000
-  | otherwise = unsafePerformIO $ alloca $ \p -> poke p x >> peek (castPtr p)
+  | otherwise = unsafePerformIO . alloca $ \p -> poke p x >> peek (castPtr p)
 
 intBitsToFloat :: Word32 -> Float
-intBitsToFloat x = unsafePerformIO $ alloca $ \p -> poke p x >> peek (castPtr p)
+intBitsToFloat x = unsafePerformIO . alloca $ \p -> poke p x >> peek (castPtr p)
 
 doubleToLongBits :: Double -> Word64
 doubleToLongBits x
   | isInfinite x && x > 0 = 0x7FF0000000000000
   | isInfinite x && x < 0 = 0xFFF0000000000000
   | isNaN x = 0x7FF8000000000000
-  | otherwise = unsafePerformIO $ alloca $ \p -> poke p x >> peek (castPtr p)
+  | otherwise = unsafePerformIO . alloca $ \p -> poke p x >> peek (castPtr p)
 
 longBitsToDouble :: Word64 -> Double
-longBitsToDouble x = unsafePerformIO $ alloca $ \p -> poke p x >> peek (castPtr p)
+longBitsToDouble x = unsafePerformIO . alloca $ \p -> poke p x >> peek (castPtr p)
 
 putAvroInt :: Int32 -> Put
 putAvroInt = putVarInt . encodeZigZag
