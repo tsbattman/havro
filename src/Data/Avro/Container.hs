@@ -7,11 +7,14 @@ module Data.Avro.Container (
   , Block(..)
   , Container(..)
   , container
+  , parseContainer
+  , parseBlocks
   ) where
 
 import Control.Applicative
 
 import Data.Binary
+import Data.Binary.Get
 import qualified Data.Map as Map
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LB
@@ -68,9 +71,9 @@ instance FromAvro FileHeader where
       else FileHeader <$> flookup "meta" r <*> flookup "sync" r
 
 data Block = Block {
-    blockCount :: Int
+    blockCount :: !Int
   , blockData :: LB.ByteString
-  , blockSync :: Sync
+  , blockSync :: !Sync
   } deriving (Eq, Show, Read)
 
 instance ToAvro Block where
@@ -98,3 +101,17 @@ container :: Get Container
 container = Container <$>
       fromBinary (avroSchema (undefined :: FileHeader))
   <*> some (fromBinary (avroSchema (undefined :: Block)))
+
+parseContainer :: LB.ByteString -> Container
+parseContainer lb =
+  case runGetOrFail (fromBinary (avroSchema (undefined :: FileHeader))) lb of
+    Left (_, _, e) -> error e
+    Right (r, _, h) -> Container h (parseBlocks r)
+
+parseBlocks :: LB.ByteString -> [Block]
+parseBlocks lb
+  | LB.null lb = []
+  | otherwise =
+    case runGetOrFail (fromBinary (avroSchema (undefined :: Block))) lb of
+      Left (_, _, e) -> error e
+      Right (r, _, v) -> v:parseBlocks r
