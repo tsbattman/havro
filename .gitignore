@@ -19,6 +19,9 @@ cabal.sandbox.config
 *.hp
 .stack-work/
 
+### From hp2ps
+*.ps
+
 # Created by https://www.gitignore.io/api/vim
 
 ### Vim ###
