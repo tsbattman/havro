@@ -5,7 +5,11 @@ module Data.Avro.Container (
   , Sync(..)
   , FileHeader(..)
   , Block(..)
+  , Container(..)
+  , container
   ) where
+
+import Control.Applicative
 
 import Data.Binary
 import qualified Data.Map as Map
@@ -84,3 +88,13 @@ instance ToAvro Block where
 instance FromAvro Block where
   fromAvro = withRecord $ \r ->
     Block <$> flookup "count" r <*> flookup "data" r <*> flookup "sync" r
+
+data Container = Container {
+    containerHeader :: FileHeader
+  , containerBlocks :: [Block]
+  } deriving (Eq, Read, Show)
+
+container :: Get Container
+container = Container <$>
+      fromBinary (avroSchema (undefined :: FileHeader))
+  <*> some (fromBinary (avroSchema (undefined :: Block)))
