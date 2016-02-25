@@ -33,7 +33,7 @@ newtype Magic = Magic { magicBytes :: BS.ByteString }
   deriving (Eq, Ord, Show, Read)
 
 instance ToAvro Magic where
-  avroSchema _ = plainSchema . ComplexSchema $ fixedSchema "Magic" Nothing [] 4
+  avroSchema _ = plainSchema $ fixedSchema "Magic" Nothing [] 4
   toAvro = toAvro . AvroNamed "Magic" Nothing . AvroFixed . magicBytes
 
 instance FromAvro Magic where
@@ -43,7 +43,7 @@ newtype Sync = Sync { syncBytes :: BS.ByteString }
   deriving (Eq, Ord, Show, Read)
 
 instance ToAvro Sync where
-  avroSchema _ = plainSchema . ComplexSchema $ fixedSchema "Sync" Nothing [] 16
+  avroSchema _ = plainSchema $ fixedSchema "Sync" Nothing [] 16
   toAvro = toAvro . AvroNamed "Sync" Nothing . AvroFixed . syncBytes
 
 instance FromAvro Sync where
@@ -58,7 +58,7 @@ headerMagic :: Magic
 headerMagic = Magic "Obj\x1"
 
 instance ToAvro FileHeader where
-  avroSchema _ = plainSchema . ComplexSchema $ recordSchema "Header" (Just "org.apache.avro.file") [] [
+  avroSchema _ = plainSchema $ recordSchema "Header" (Just "org.apache.avro.file") [] [
       recordField "magic" (toTypeSchema $ avroSchema (undefined :: Magic))
     , recordField "meta" (ComplexSchema $ MapSchema (PrimitiveSchema BytesSchema))
     , recordField "sync" (toTypeSchema $ avroSchema (undefined :: Sync))
@@ -86,7 +86,7 @@ data Block = Block {
   } deriving (Eq, Show, Read)
 
 instance ToAvro Block where
-  avroSchema _ = plainSchema . ComplexSchema $ recordSchema "Block" (Just "org.apache.avro.file") [] [
+  avroSchema _ = plainSchema $ recordSchema "Block" (Just "org.apache.avro.file") [] [
       recordField "count" (PrimitiveSchema LongSchema)
     , recordField "data" (PrimitiveSchema BytesSchema)
     , recordField "sync" (toTypeSchema $ avroSchema (undefined :: Sync))

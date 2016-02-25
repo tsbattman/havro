@@ -8,9 +8,20 @@ module Data.Avro.Schema (
   , recordField
   , NamedSchemaType(..)
   , ComplexSchemaType(..)
+  , nullSchema
+  , boolSchema
+  , intSchema
+  , longSchema
+  , floatSchema
+  , doubleSchema
+  , bytesSchema
+  , stringSchema
   , recordSchema
   , enumSchema
   , fixedSchema
+  , arraySchema
+  , mapSchema
+  , unionSchema
   , TypeSchema(..)
   , Schema(..)
   , plainSchema
@@ -123,15 +134,6 @@ data ComplexSchemaType =
   | UnionSchema [TypeSchema]
   deriving (Eq, Show, Read)
 
-recordSchema :: String -> Maybe String -> [String] -> [RecordField] -> ComplexSchemaType
-recordSchema nm ns alias f = NamedSchema nm ns alias (RecordSchema f)
-
-enumSchema :: String -> Maybe String -> [String] -> [String] -> ComplexSchemaType
-enumSchema nm ns alias f = NamedSchema nm ns alias (EnumSchema f)
-
-fixedSchema :: String -> Maybe String -> [String] -> Int -> ComplexSchemaType
-fixedSchema nm ns alias n = NamedSchema nm ns alias (FixedSchema n)
-
 instance ToJSON ComplexSchemaType where
   toJSON (NamedSchema nm ns alias s) = case toJSON s of
     Object o -> Object $ o <> a
@@ -161,6 +163,32 @@ data TypeSchema =
     PrimitiveSchema PrimitiveSchemaType
   | ComplexSchema ComplexSchemaType
   deriving (Eq, Show, Read)
+
+nullSchema, boolSchema, intSchema, longSchema, floatSchema, doubleSchema, bytesSchema, stringSchema :: TypeSchema
+nullSchema = PrimitiveSchema NullSchema
+boolSchema = PrimitiveSchema BoolSchema
+intSchema = PrimitiveSchema IntSchema
+longSchema = PrimitiveSchema LongSchema
+floatSchema = PrimitiveSchema FloatSchema
+doubleSchema = PrimitiveSchema DoubleSchema
+bytesSchema = PrimitiveSchema BytesSchema
+stringSchema = PrimitiveSchema StringSchema
+
+recordSchema :: String -> Maybe String -> [String] -> [RecordField] -> TypeSchema
+recordSchema nm ns alias f = ComplexSchema $ NamedSchema nm ns alias (RecordSchema f)
+
+enumSchema :: String -> Maybe String -> [String] -> [String] -> TypeSchema
+enumSchema nm ns alias f = ComplexSchema $ NamedSchema nm ns alias (EnumSchema f)
+
+fixedSchema :: String -> Maybe String -> [String] -> Int -> TypeSchema
+fixedSchema nm ns alias n = ComplexSchema $ NamedSchema nm ns alias (FixedSchema n)
+
+arraySchema, mapSchema :: TypeSchema -> TypeSchema
+arraySchema = ComplexSchema . ArraySchema
+mapSchema = ComplexSchema .  MapSchema
+
+unionSchema :: [TypeSchema] -> TypeSchema
+unionSchema = ComplexSchema . UnionSchema
 
 instance ToJSON TypeSchema where
   toJSON (PrimitiveSchema s) = toJSON s
