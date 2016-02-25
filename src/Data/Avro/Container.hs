@@ -4,15 +4,19 @@ module Data.Avro.Container (
     Magic(..)
   , Sync(..)
   , FileHeader(..)
+  , dataSchema
   , Block(..)
   , Container(..)
   , container
   , parseContainer
   , parseBlocks
+  , readAvroContainer
   ) where
 
+import Control.Monad ((<=<))
 import Control.Applicative
 
+import Data.Aeson as A
 import Data.Binary
 import Data.Binary.Get
 import qualified Data.Map as Map
@@ -27,9 +31,6 @@ import Data.Avro.Class
 
 newtype Magic = Magic { magicBytes :: BS.ByteString }
   deriving (Eq, Ord, Show, Read)
-
-magic :: Magic
-magic = Magic "Obj\x1"
 
 instance ToAvro Magic where
   avroSchema _ = plainSchema . ComplexSchema $ fixedSchema "Magic" Nothing [] 4
@@ -48,8 +49,13 @@ instance ToAvro Sync where
 instance FromAvro Sync where
   fromAvro = fmap Sync . fromAvro
 
-data FileHeader = FileHeader (Map.Map T.Text BS.ByteString) Sync
-  deriving (Eq, Show, Read)
+data FileHeader = FileHeader {
+    headerMeta :: Map.Map T.Text BS.ByteString
+  , headerSync :: Sync
+  } deriving (Eq, Show, Read)
+
+headerMagic :: Magic
+headerMagic = Magic "Obj\x1"
 
 instance ToAvro FileHeader where
   avroSchema _ = plainSchema . ComplexSchema $ recordSchema "Header" (Just "org.apache.avro.file") [] [
@@ -58,7 +64,7 @@ instance ToAvro FileHeader where
     , recordField "sync" (toTypeSchema $ avroSchema (undefined :: Sync))
     ]
   toAvro (FileHeader m s) = record  "Header" (Just "org.apache.avro.file") [
-      ("magic", toAvro magic)
+      ("magic", toAvro headerMagic)
     , ("meta", toAvro m)
     , ("sync", toAvro s)
     ]
@@ -66,9 +72,12 @@ instance ToAvro FileHeader where
 instance FromAvro FileHeader where
   fromAvro = withRecord $ \r -> do
     m <- flookup "magic" r
-    if m /= magic
+    if m /= headerMagic
       then fail "bad magic"
       else FileHeader <$> flookup "meta" r <*> flookup "sync" r
+
+dataSchema :: FileHeader -> Maybe Schema
+dataSchema = A.decode . LB.fromStrict <=< Map.lookup "avro.schema" . headerMeta
 
 data Block = Block {
     blockCount :: !Int
@@ -102,12 +111,6 @@ container = Container <$>
       fromBinary (avroSchema (undefined :: FileHeader))
   <*> some (fromBinary (avroSchema (undefined :: Block)))
 
-parseContainer :: LB.ByteString -> Container
-parseContainer lb =
-  case runGetOrFail (fromBinary (avroSchema (undefined :: FileHeader))) lb of
-    Left (_, _, e) -> error e
-    Right (r, _, h) -> Container h (parseBlocks r)
-
 parseBlocks :: LB.ByteString -> [Block]
 parseBlocks lb
   | LB.null lb = []
@@ -115,3 +118,12 @@ parseBlocks lb
     case runGetOrFail (fromBinary (avroSchema (undefined :: Block))) lb of
       Left (_, _, e) -> error e
       Right (r, _, v) -> v:parseBlocks r
+
+parseContainer :: LB.ByteString -> Container
+parseContainer lb =
+  case runGetOrFail (fromBinary (avroSchema (undefined :: FileHeader))) lb of
+    Left (_, _, e) -> error e
+    Right (r, _, h) -> Container h (parseBlocks r)
+
+readAvroContainer :: FilePath -> IO Container
+readAvroContainer = fmap parseContainer . LB.readFile
