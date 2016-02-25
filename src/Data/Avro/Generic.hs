@@ -12,7 +12,6 @@ module Data.Avro.Generic (
   ) where
 
 import Control.Arrow (arr, (&&&), Kleisli(..))
-import Control.Monad (replicateM)
 import Data.Int
 
 import Data.Binary

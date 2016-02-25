@@ -26,7 +26,6 @@ import qualified Data.Text as T
 
 import Data.Avro.Schema
 import Data.Avro.Generic
-import Data.Avro.Encoding
 import Data.Avro.Class
 
 newtype Magic = Magic { magicBytes :: BS.ByteString }

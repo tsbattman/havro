@@ -210,13 +210,15 @@ instance ToJSON Schema where
   toJSON (Predefined s) = toJSON s
   toJSON (WithAttributes s a) = case toJSON s of
     Object o -> Object $ o <> a
-    String s -> Object $ HashMap.fromList ["type" .= s] <> a
+    String t -> Object $ HashMap.fromList ["type" .= t] <> a
+    _ -> error "only string or object supported for schema"
   toJSON (TopUnion s) = toJSON s
 
 instance FromJSON Schema where
   parseJSON v@(String _) = Predefined <$> parseJSON v
   parseJSON v@(Object _) = WithAttributes <$> parseJSON v <*> pure (HashMap.fromList [])
   parseJSON v@(Array _) = TopUnion <$> parseJSON v
+  parseJSON _ = fail "only string, object, or array permitted for top-level schema"
 
 plainSchema :: TypeSchema -> Schema
 plainSchema = (`WithAttributes` HashMap.empty)
