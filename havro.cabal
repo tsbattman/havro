@@ -17,11 +17,12 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
-      Data.Avro.Encoding
+      Data.Avro
+    , Data.Avro.Class
+    , Data.Avro.Container
+    , Data.Avro.Encoding
     , Data.Avro.Generic
     , Data.Avro.Schema
-    , Data.Avro.Container
-    , Data.Avro.Class
   -- other-modules:
   -- other-extensions:
   build-depends:

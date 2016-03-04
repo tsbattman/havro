@@ -92,7 +92,7 @@ putAvroNamed (AvroEnum e _) = putAvroInt (fromIntegral e)
 putAvroNamed (AvroFixed f) = putByteString f
 
 getAvroNamed :: NamedSchemaType -> Get NamedType
-getAvroNamed (RecordSchema f) = AvroRecord <$> mapM (runKleisli $ arr fieldName &&& Kleisli (getAvro . fieldType)) f
+getAvroNamed (RecordSchema f) = AvroRecord <$> mapM (runKleisli $ arr fieldName &&& Kleisli (getAvro . toTypeSchema . fieldType)) f
 getAvroNamed (EnumSchema f) = AvroEnum <$> fmap fromIntegral getAvroInt <*> pure f
 getAvroNamed (FixedSchema n) = AvroFixed <$> getByteString n
 
@@ -100,7 +100,7 @@ data ComplexType =
     AvroNamed String (Maybe String) NamedType
   | AvroArray [V.Vector AvroType]
   | AvroMap [V.Vector AvroKV]
-  | AvroUnion Int AvroType [TypeSchema]
+  | AvroUnion Int AvroType [Schema]
   deriving (Eq, Show, Read)
 
 putAvroComplex :: ComplexType -> Put
@@ -111,11 +111,11 @@ putAvroComplex (AvroUnion ix v _) = putAvroInt (fromIntegral ix) >> putAvro v
 
 getAvroComplex :: ComplexSchemaType -> Get ComplexType
 getAvroComplex (NamedSchema nm ns _ r) = AvroNamed nm ns <$> getAvroNamed r
-getAvroComplex (ArraySchema s) = AvroArray <$> getAvroBlocks (getAvro s)
-getAvroComplex (MapSchema s) = AvroMap <$> getAvroBlocks (getAvroKV s)
+getAvroComplex (ArraySchema s) = AvroArray <$> getAvroBlocks (getAvro (toTypeSchema s))
+getAvroComplex (MapSchema s) = AvroMap <$> getAvroBlocks (getAvroKV (toTypeSchema s))
 getAvroComplex (UnionSchema s) = do
   ix <- fromIntegral <$> getAvroInt
-  AvroUnion ix <$> getAvro (s !! ix) <*> pure s
+  AvroUnion ix <$> getAvro (toTypeSchema $ s !! ix) <*> pure s
 
 data AvroType =
     AvroPrimitive PrimitiveType
