@@ -53,9 +53,9 @@ data FileHeader = FileHeader (Map.Map T.Text BS.ByteString) Sync
 
 instance ToAvro FileHeader where
   avroSchema _ = plainSchema . ComplexSchema $ recordSchema "Header" (Just "org.apache.avro.file") [] [
-      recordField "magic" (toTypeSchema $ avroSchema (undefined :: Magic))
-    , recordField "meta" (ComplexSchema $ MapSchema (PrimitiveSchema BytesSchema))
-    , recordField "sync" (toTypeSchema $ avroSchema (undefined :: Sync))
+      recordField "magic" (avroSchema (undefined :: Magic))
+    , recordField "meta" (plainSchema . ComplexSchema . MapSchema . plainSchema $ PrimitiveSchema BytesSchema)
+    , recordField "sync" (avroSchema (undefined :: Sync))
     ]
   toAvro (FileHeader m s) = record  "Header" (Just "org.apache.avro.file") [
       ("magic", toAvro magic)
@@ -78,9 +78,9 @@ data Block = Block {
 
 instance ToAvro Block where
   avroSchema _ = plainSchema . ComplexSchema $ recordSchema "Block" (Just "org.apache.avro.file") [] [
-      recordField "count" (PrimitiveSchema LongSchema)
-    , recordField "data" (PrimitiveSchema BytesSchema)
-    , recordField "sync" (toTypeSchema $ avroSchema (undefined :: Sync))
+      recordField "count" (plainSchema $ PrimitiveSchema LongSchema)
+    , recordField "data" (plainSchema $ PrimitiveSchema BytesSchema)
+    , recordField "sync" (avroSchema (undefined :: Sync))
     ]
   toAvro (Block n bs sync) = record "Block" (Just "org.apache.avro.file") [
       ("count", toAvro n)

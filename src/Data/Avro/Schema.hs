@@ -68,13 +68,13 @@ instance FromJSON SortOrder where
 data RecordField = RecordField {
     fieldName :: String
   , fieldDoc :: String
-  , fieldType :: TypeSchema
+  , fieldType :: Schema
   , fieldDefault :: Maybe () -- TODO: replace () with AvroType, need to break circular dependency
   , fieldOrder :: SortOrder
   , fieldAliases :: [String]
   } deriving (Eq, Show, Read)
 
-recordField :: String -> TypeSchema -> RecordField
+recordField :: String -> Schema -> RecordField
 recordField nm s = RecordField nm "" s Nothing Ascending []
 
 instance ToJSON RecordField where
@@ -118,9 +118,9 @@ instance FromJSON NamedSchemaType where
 
 data ComplexSchemaType =
     NamedSchema String (Maybe String) [String] NamedSchemaType
-  | ArraySchema TypeSchema
-  | MapSchema TypeSchema
-  | UnionSchema [TypeSchema]
+  | ArraySchema Schema
+  | MapSchema Schema
+  | UnionSchema [Schema]
   deriving (Eq, Show, Read)
 
 recordSchema :: String -> Maybe String -> [String] -> [RecordField] -> ComplexSchemaType
@@ -173,27 +173,25 @@ instance FromJSON TypeSchema where
   parseJSON v = typeMismatch "type schema" v
 
 data Schema =
-    Predefined TypeSchema
-  | WithAttributes TypeSchema Object
+    WithAttributes TypeSchema Object
   | TopUnion [Schema]
   deriving (Eq, Show, Read)
 
 instance ToJSON Schema where
-  toJSON (Predefined s) = toJSON s
-  toJSON (WithAttributes s a) = case toJSON s of
-    Object o -> Object $ o <> a
-    String s -> Object $ HashMap.fromList ["type" .= s] <> a
+  toJSON (WithAttributes s a)
+    | HashMap.null a = toJSON s
+    | otherwise = case toJSON s of
+        Object o -> Object $ o <> a
+        String s -> Object $ HashMap.fromList ["type" .= s] <> a
   toJSON (TopUnion s) = toJSON s
 
 instance FromJSON Schema where
-  parseJSON v@(String _) = Predefined <$> parseJSON v
-  parseJSON v@(Object _) = WithAttributes <$> parseJSON v <*> pure (HashMap.fromList [])
   parseJSON v@(Array _) = TopUnion <$> parseJSON v
+  parseJSON v = WithAttributes <$> parseJSON v <*> pure (HashMap.fromList [])
 
 plainSchema :: TypeSchema -> Schema
 plainSchema = (`WithAttributes` HashMap.empty)
 
 toTypeSchema :: Schema -> TypeSchema
-toTypeSchema (Predefined s) = s
 toTypeSchema (WithAttributes s _) = s
-toTypeSchema (TopUnion s) = ComplexSchema $ UnionSchema (map toTypeSchema s)
+toTypeSchema (TopUnion s) = ComplexSchema $ UnionSchema s
