@@ -199,7 +199,7 @@ instance FromJSON TypeSchema where
   parseJSON v@(String _) = PrimitiveSchema <$> parseJSON v
   parseJSON v@(Array _) = ComplexSchema <$> parseJSON v
   parseJSON v@(Object o) =
-        maybe (fail "no primitive") (fmap PrimitiveSchema . parseJSON) (HashMap.lookup "type" o)
+        (PrimitiveSchema <$> o .: "type")
     <|> (ComplexSchema <$> parseJSON v)
   parseJSON v = typeMismatch "type schema" v
 
