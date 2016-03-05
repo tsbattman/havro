@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE TupleSections #-}
 
 module Data.Avro.Class (
@@ -183,9 +182,10 @@ instance ToAvro a => ToAvro (Map.Map T.Text a) where
   toAvro = toAvro . AvroMap . return . V.fromList . map (second toAvro) . Map.toList
 
 instance FromAvro a => FromAvro (Map.Map T.Text a) where
-  fromAvro (AvroComplex (AvroMap r)) = do
+  fromAvro (AvroComplex (AvroMap r)) =
     fmap Map.fromList . mapM go . concatMap V.toList $ r
     where go (x, y) = (x,) <$> fromAvro y
+  fromAvro _ = fail "only avro map can be a haskell map"
 
 flookup :: (FromAvro r, Monad m) => String -> [(String, AvroType)] -> m r
 flookup s = maybe (fail $ "no field " ++ s) fromAvro . lookup s

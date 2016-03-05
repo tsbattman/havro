@@ -36,6 +36,7 @@ library
     , vector
   hs-source-dirs:      src
   ghc-prof-options: -fprof-auto
+  ghc-options: -Wall
   default-language:    Haskell2010
 
 executable havreader
