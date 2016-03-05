@@ -5,7 +5,10 @@ module Data.Avro.Container (
   , Sync(..)
   , FileHeader(..)
   , dataSchema
+  , Codec(..)
+  , predefinedCodecs
   , dataCodec
+  , lookupCodec
   , Block(..)
   , Container(..)
   , container
@@ -16,7 +19,9 @@ module Data.Avro.Container (
 
 import Control.Monad ((<=<))
 import Control.Applicative
+import Data.Maybe (fromMaybe)
 
+import Codec.Compression.Zlib.Raw
 import Data.Aeson as A
 import Data.Binary
 import Data.Binary.Get
@@ -79,16 +84,22 @@ instance FromAvro FileHeader where
 dataSchema :: FileHeader -> Maybe Schema
 dataSchema = A.decode . LB.fromStrict <=< Map.lookup "avro.schema" . headerMeta
 
-data Codec = NullCodec | Deflate | Snappy | UserDefined BS.ByteString
-  deriving (Eq, Show, Read)
+data Codec = Codec {
+      compressUsing :: LB.ByteString -> LB.ByteString
+    , decompressUsing :: LB.ByteString -> LB.ByteString
+    }
 
-dataCodec :: FileHeader -> Codec
-dataCodec = maybe NullCodec ascodec . Map.lookup "avro.codec" . headerMeta
-  where
-    ascodec "null" = NullCodec
-    ascodec "deflate" = Deflate
-    ascodec "snappy" = Snappy
-    ascodec v = UserDefined v
+predefinedCodecs :: Map.Map BS.ByteString Codec
+predefinedCodecs = Map.fromList [
+    ("null", Codec id id)
+  , ("deflate", Codec compress decompress)
+  ]
+
+dataCodec :: FileHeader -> BS.ByteString
+dataCodec = fromMaybe "null" . Map.lookup "avro.codec" . headerMeta
+
+lookupCodec :: FileHeader -> Map.Map BS.ByteString Codec -> Maybe Codec
+lookupCodec h = Map.lookup (dataCodec h)
 
 data Block = Block {
     blockCount :: !Int

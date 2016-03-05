@@ -2,7 +2,6 @@
 
 module Main where
 
-import Codec.Compression.Zlib.Raw
 import Data.Aeson
 import Data.Binary.Get
 import qualified Data.ByteString as BS
@@ -14,10 +13,6 @@ import Data.Avro.Container
 import Data.Avro.Generic
 import Data.Avro.Schema
 import Data.Avro.Class
-
-getCodec :: BS.ByteString -> Maybe (LB.ByteString -> LB.ByteString)
-getCodec "deflate" = Just decompress
-getCodec _ = Nothing
 
 main :: IO ()
 main = do

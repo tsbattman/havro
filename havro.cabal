@@ -34,6 +34,7 @@ library
     , text
     , unordered-containers
     , vector
+    , zlib >= 0.6 && < 0.7
   hs-source-dirs:      src
   ghc-prof-options: -fprof-auto
   ghc-options: -Wall
