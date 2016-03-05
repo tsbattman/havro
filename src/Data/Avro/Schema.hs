@@ -201,29 +201,26 @@ instance FromJSON TypeSchema where
   parseJSON v = typeMismatch "type schema" v
 
 data Schema =
-    Predefined TypeSchema
-  | WithAttributes TypeSchema Object
+    WithAttributes TypeSchema Object
   | TopUnion [Schema]
   deriving (Eq, Show, Read)
 
 instance ToJSON Schema where
-  toJSON (Predefined s) = toJSON s
-  toJSON (WithAttributes s a) = case toJSON s of
-    Object o -> Object $ o <> a
-    String t -> Object $ HashMap.fromList ["type" .= t] <> a
-    _ -> error "only string or object supported for schema"
+  toJSON (WithAttributes s a)
+    | HashMap.null a = toJSON s
+    | otherwise = case toJSON s of
+        Object o -> Object $ o <> a
+        String t -> Object $ HashMap.fromList ["type" .= t] <> a
+        _ -> error "only string or object supported for schema"
   toJSON (TopUnion s) = toJSON s
 
 instance FromJSON Schema where
-  parseJSON v@(String _) = Predefined <$> parseJSON v
-  parseJSON v@(Object _) = WithAttributes <$> parseJSON v <*> pure (HashMap.fromList [])
   parseJSON v@(Array _) = TopUnion <$> parseJSON v
-  parseJSON _ = fail "only string, object, or array permitted for top-level schema"
+  parseJSON v = WithAttributes <$> parseJSON v <*> pure (HashMap.fromList [])
 
 plainSchema :: TypeSchema -> Schema
 plainSchema = (`WithAttributes` HashMap.empty)
 
 toTypeSchema :: Schema -> TypeSchema
-toTypeSchema (Predefined s) = s
 toTypeSchema (WithAttributes s _) = s
 toTypeSchema (TopUnion s) = ComplexSchema $ UnionSchema s

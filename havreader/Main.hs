@@ -22,5 +22,7 @@ getCodec _ = Nothing
 main :: IO ()
 main = do
   l <- LB.readFile "/home/data/capture/suntime/CON_FORECAST.avc"
+  let avc = parseContainer l
   -- runContT (parseFile l) cb
-  mapM_ (print . blockSync) . containerBlocks $ parseContainer l
+  print . encode . dataSchema . containerHeader $ avc
+  mapM_ (print . blockSync) . containerBlocks $ avc

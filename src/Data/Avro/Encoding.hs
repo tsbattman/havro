@@ -24,7 +24,6 @@ module Data.Avro.Encoding (
   , getAvroEnum
   ) where
 
-import Control.Monad (replicateM)
 import Data.Int
 import Data.Word
 import Data.Bits
