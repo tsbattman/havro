@@ -21,10 +21,11 @@ import Control.Monad ((<=<))
 import Control.Applicative
 import Data.Maybe (fromMaybe)
 
-import Codec.Compression.Zlib.Raw
 import Data.Aeson as A
 import Data.Binary
 import Data.Binary.Get
+import qualified Codec.Compression.Zlib.Raw as Zlib
+import qualified Codec.Compression.Snappy.Lazy as Snappy
 import qualified Data.Map as Map
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LB
@@ -85,14 +86,15 @@ dataSchema :: FileHeader -> Maybe Schema
 dataSchema = A.decode . LB.fromStrict <=< Map.lookup "avro.schema" . headerMeta
 
 data Codec = Codec {
-      compressUsing :: LB.ByteString -> LB.ByteString
-    , decompressUsing :: LB.ByteString -> LB.ByteString
-    }
+    compressUsing :: LB.ByteString -> LB.ByteString
+  , decompressUsing :: LB.ByteString -> LB.ByteString
+  }
 
 predefinedCodecs :: Map.Map BS.ByteString Codec
 predefinedCodecs = Map.fromList [
     ("null", Codec id id)
-  , ("deflate", Codec compress decompress)
+  , ("deflate", Codec Zlib.compress Zlib.decompress)
+  , ("snappy", Codec Snappy.compress Snappy.decompress) -- TODO: Handle checksum
   ]
 
 dataCodec :: FileHeader -> BS.ByteString
