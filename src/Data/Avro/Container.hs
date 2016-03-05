@@ -8,8 +8,8 @@ module Data.Avro.Container (
   , Block(..)
   , Container(..)
   , container
-  , parseContainer
   , parseBlocks
+  , parseContainer
   , readAvroContainer
   ) where
 
