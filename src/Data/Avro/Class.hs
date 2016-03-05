@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE TupleSections #-}
 
 module Data.Avro.Class (
@@ -95,12 +94,12 @@ instance ToAvro PrimitiveType where
   toAvro = AvroPrimitive
 
 instance ToAvro ComplexType where
-  avroSchema (AvroNamed nm ns r) = plainSchema . ComplexSchema $ case r of
-    AvroRecord f -> recordSchema nm ns [] $ map (\(fn, ft) -> recordField fn (avroSchema ft)) f
+  avroSchema (AvroNamed nm ns r) = plainSchema $ case r of
+    AvroRecord f -> recordSchema nm ns [] $ map (\(fn, ft) -> recordField fn (toTypeSchema . avroSchema $ ft)) f
     AvroEnum _ f -> enumSchema nm ns [] f
     AvroFixed f -> fixedSchema nm ns [] (BS.length f)
-  avroSchema (AvroArray f) = plainSchema . ComplexSchema $ ArraySchema (avroSchema . V.head . head $ f)
-  avroSchema (AvroMap f) = plainSchema . ComplexSchema $ MapSchema (avroSchema . snd . V.head . head $ f)
+  avroSchema (AvroArray f) = plainSchema . ComplexSchema $ ArraySchema (toTypeSchema . avroSchema . V.head . head $ f)
+  avroSchema (AvroMap f) = plainSchema . ComplexSchema $ MapSchema (toTypeSchema . avroSchema . snd . V.head . head $ f)
   avroSchema (AvroUnion _ _ f) = plainSchema . ComplexSchema $ UnionSchema f
   toAvro = AvroComplex
 
@@ -183,9 +182,10 @@ instance ToAvro a => ToAvro (Map.Map T.Text a) where
   toAvro = toAvro . AvroMap . return . V.fromList . map (second toAvro) . Map.toList
 
 instance FromAvro a => FromAvro (Map.Map T.Text a) where
-  fromAvro (AvroComplex (AvroMap r)) = do
+  fromAvro (AvroComplex (AvroMap r)) =
     fmap Map.fromList . mapM go . concatMap V.toList $ r
     where go (x, y) = (x,) <$> fromAvro y
+  fromAvro _ = fail "only avro map can be a haskell map"
 
 flookup :: (FromAvro r, Monad m) => String -> [(String, AvroType)] -> m r
 flookup s = maybe (fail $ "no field " ++ s) fromAvro . lookup s

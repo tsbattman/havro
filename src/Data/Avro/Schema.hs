@@ -8,9 +8,20 @@ module Data.Avro.Schema (
   , recordField
   , NamedSchemaType(..)
   , ComplexSchemaType(..)
+  , nullSchema
+  , boolSchema
+  , intSchema
+  , longSchema
+  , floatSchema
+  , doubleSchema
+  , bytesSchema
+  , stringSchema
   , recordSchema
   , enumSchema
   , fixedSchema
+  , arraySchema
+  , mapSchema
+  , unionSchema
   , TypeSchema(..)
   , Schema(..)
   , plainSchema
@@ -68,13 +79,13 @@ instance FromJSON SortOrder where
 data RecordField = RecordField {
     fieldName :: String
   , fieldDoc :: String
-  , fieldType :: Schema
+  , fieldType :: TypeSchema
   , fieldDefault :: Maybe () -- TODO: replace () with AvroType, need to break circular dependency
   , fieldOrder :: SortOrder
   , fieldAliases :: [String]
   } deriving (Eq, Show, Read)
 
-recordField :: String -> Schema -> RecordField
+recordField :: String -> TypeSchema -> RecordField
 recordField nm s = RecordField nm "" s Nothing Ascending []
 
 instance ToJSON RecordField where
@@ -118,19 +129,10 @@ instance FromJSON NamedSchemaType where
 
 data ComplexSchemaType =
     NamedSchema String (Maybe String) [String] NamedSchemaType
-  | ArraySchema Schema
-  | MapSchema Schema
-  | UnionSchema [Schema]
+  | ArraySchema TypeSchema
+  | MapSchema TypeSchema
+  | UnionSchema [TypeSchema]
   deriving (Eq, Show, Read)
-
-recordSchema :: String -> Maybe String -> [String] -> [RecordField] -> ComplexSchemaType
-recordSchema nm ns alias f = NamedSchema nm ns alias (RecordSchema f)
-
-enumSchema :: String -> Maybe String -> [String] -> [String] -> ComplexSchemaType
-enumSchema nm ns alias f = NamedSchema nm ns alias (EnumSchema f)
-
-fixedSchema :: String -> Maybe String -> [String] -> Int -> ComplexSchemaType
-fixedSchema nm ns alias n = NamedSchema nm ns alias (FixedSchema n)
 
 instance ToJSON ComplexSchemaType where
   toJSON (NamedSchema nm ns alias s) = case toJSON s of
@@ -162,6 +164,32 @@ data TypeSchema =
   | ComplexSchema ComplexSchemaType
   deriving (Eq, Show, Read)
 
+nullSchema, boolSchema, intSchema, longSchema, floatSchema, doubleSchema, bytesSchema, stringSchema :: TypeSchema
+nullSchema = PrimitiveSchema NullSchema
+boolSchema = PrimitiveSchema BoolSchema
+intSchema = PrimitiveSchema IntSchema
+longSchema = PrimitiveSchema LongSchema
+floatSchema = PrimitiveSchema FloatSchema
+doubleSchema = PrimitiveSchema DoubleSchema
+bytesSchema = PrimitiveSchema BytesSchema
+stringSchema = PrimitiveSchema StringSchema
+
+recordSchema :: String -> Maybe String -> [String] -> [RecordField] -> TypeSchema
+recordSchema nm ns alias f = ComplexSchema $ NamedSchema nm ns alias (RecordSchema f)
+
+enumSchema :: String -> Maybe String -> [String] -> [String] -> TypeSchema
+enumSchema nm ns alias f = ComplexSchema $ NamedSchema nm ns alias (EnumSchema f)
+
+fixedSchema :: String -> Maybe String -> [String] -> Int -> TypeSchema
+fixedSchema nm ns alias n = ComplexSchema $ NamedSchema nm ns alias (FixedSchema n)
+
+arraySchema, mapSchema :: TypeSchema -> TypeSchema
+arraySchema = ComplexSchema . ArraySchema
+mapSchema = ComplexSchema .  MapSchema
+
+unionSchema :: [TypeSchema] -> TypeSchema
+unionSchema = ComplexSchema . UnionSchema
+
 instance ToJSON TypeSchema where
   toJSON (PrimitiveSchema s) = toJSON s
   toJSON (ComplexSchema s) = toJSON s
@@ -173,25 +201,29 @@ instance FromJSON TypeSchema where
   parseJSON v = typeMismatch "type schema" v
 
 data Schema =
-    WithAttributes TypeSchema Object
+    Predefined TypeSchema
+  | WithAttributes TypeSchema Object
   | TopUnion [Schema]
   deriving (Eq, Show, Read)
 
 instance ToJSON Schema where
-  toJSON (WithAttributes s a)
-    | HashMap.null a = toJSON s
-    | otherwise = case toJSON s of
-        Object o -> Object $ o <> a
-        String s -> Object $ HashMap.fromList ["type" .= s] <> a
+  toJSON (Predefined s) = toJSON s
+  toJSON (WithAttributes s a) = case toJSON s of
+    Object o -> Object $ o <> a
+    String t -> Object $ HashMap.fromList ["type" .= t] <> a
+    _ -> error "only string or object supported for schema"
   toJSON (TopUnion s) = toJSON s
 
 instance FromJSON Schema where
+  parseJSON v@(String _) = Predefined <$> parseJSON v
+  parseJSON v@(Object _) = WithAttributes <$> parseJSON v <*> pure (HashMap.fromList [])
   parseJSON v@(Array _) = TopUnion <$> parseJSON v
-  parseJSON v = WithAttributes <$> parseJSON v <*> pure (HashMap.fromList [])
+  parseJSON _ = fail "only string, object, or array permitted for top-level schema"
 
 plainSchema :: TypeSchema -> Schema
 plainSchema = (`WithAttributes` HashMap.empty)
 
 toTypeSchema :: Schema -> TypeSchema
+toTypeSchema (Predefined s) = s
 toTypeSchema (WithAttributes s _) = s
-toTypeSchema (TopUnion s) = ComplexSchema $ UnionSchema s
+toTypeSchema (TopUnion s) = ComplexSchema $ UnionSchema (map toTypeSchema s)

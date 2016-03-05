@@ -4,15 +4,19 @@ module Data.Avro.Container (
     Magic(..)
   , Sync(..)
   , FileHeader(..)
+  , dataSchema
   , Block(..)
   , Container(..)
   , container
   , parseContainer
   , parseBlocks
+  , readAvroContainer
   ) where
 
+import Control.Monad ((<=<))
 import Control.Applicative
 
+import Data.Aeson as A
 import Data.Binary
 import Data.Binary.Get
 import qualified Data.Map as Map
@@ -22,17 +26,13 @@ import qualified Data.Text as T
 
 import Data.Avro.Schema
 import Data.Avro.Generic
-import Data.Avro.Encoding
 import Data.Avro.Class
 
 newtype Magic = Magic { magicBytes :: BS.ByteString }
   deriving (Eq, Ord, Show, Read)
 
-magic :: Magic
-magic = Magic "Obj\x1"
-
 instance ToAvro Magic where
-  avroSchema _ = plainSchema . ComplexSchema $ fixedSchema "Magic" Nothing [] 4
+  avroSchema _ = plainSchema $ fixedSchema "Magic" Nothing [] 4
   toAvro = toAvro . AvroNamed "Magic" Nothing . AvroFixed . magicBytes
 
 instance FromAvro Magic where
@@ -42,23 +42,28 @@ newtype Sync = Sync { syncBytes :: BS.ByteString }
   deriving (Eq, Ord, Show, Read)
 
 instance ToAvro Sync where
-  avroSchema _ = plainSchema . ComplexSchema $ fixedSchema "Sync" Nothing [] 16
+  avroSchema _ = plainSchema $ fixedSchema "Sync" Nothing [] 16
   toAvro = toAvro . AvroNamed "Sync" Nothing . AvroFixed . syncBytes
 
 instance FromAvro Sync where
   fromAvro = fmap Sync . fromAvro
 
-data FileHeader = FileHeader (Map.Map T.Text BS.ByteString) Sync
-  deriving (Eq, Show, Read)
+data FileHeader = FileHeader {
+    headerMeta :: Map.Map T.Text BS.ByteString
+  , headerSync :: Sync
+  } deriving (Eq, Show, Read)
+
+headerMagic :: Magic
+headerMagic = Magic "Obj\x1"
 
 instance ToAvro FileHeader where
-  avroSchema _ = plainSchema . ComplexSchema $ recordSchema "Header" (Just "org.apache.avro.file") [] [
-      recordField "magic" (avroSchema (undefined :: Magic))
-    , recordField "meta" (plainSchema . ComplexSchema . MapSchema . plainSchema $ PrimitiveSchema BytesSchema)
-    , recordField "sync" (avroSchema (undefined :: Sync))
+  avroSchema _ = plainSchema $ recordSchema "Header" (Just "org.apache.avro.file") [] [
+      recordField "magic" (toTypeSchema $ avroSchema (undefined :: Magic))
+    , recordField "meta" (ComplexSchema $ MapSchema (PrimitiveSchema BytesSchema))
+    , recordField "sync" (toTypeSchema $ avroSchema (undefined :: Sync))
     ]
   toAvro (FileHeader m s) = record  "Header" (Just "org.apache.avro.file") [
-      ("magic", toAvro magic)
+      ("magic", toAvro headerMagic)
     , ("meta", toAvro m)
     , ("sync", toAvro s)
     ]
@@ -66,9 +71,12 @@ instance ToAvro FileHeader where
 instance FromAvro FileHeader where
   fromAvro = withRecord $ \r -> do
     m <- flookup "magic" r
-    if m /= magic
+    if m /= headerMagic
       then fail "bad magic"
       else FileHeader <$> flookup "meta" r <*> flookup "sync" r
+
+dataSchema :: FileHeader -> Maybe Schema
+dataSchema = A.decode . LB.fromStrict <=< Map.lookup "avro.schema" . headerMeta
 
 data Block = Block {
     blockCount :: !Int
@@ -77,10 +85,10 @@ data Block = Block {
   } deriving (Eq, Show, Read)
 
 instance ToAvro Block where
-  avroSchema _ = plainSchema . ComplexSchema $ recordSchema "Block" (Just "org.apache.avro.file") [] [
-      recordField "count" (plainSchema $ PrimitiveSchema LongSchema)
-    , recordField "data" (plainSchema $ PrimitiveSchema BytesSchema)
-    , recordField "sync" (avroSchema (undefined :: Sync))
+  avroSchema _ = plainSchema $ recordSchema "Block" (Just "org.apache.avro.file") [] [
+      recordField "count" (PrimitiveSchema LongSchema)
+    , recordField "data" (PrimitiveSchema BytesSchema)
+    , recordField "sync" (toTypeSchema $ avroSchema (undefined :: Sync))
     ]
   toAvro (Block n bs sync) = record "Block" (Just "org.apache.avro.file") [
       ("count", toAvro n)
@@ -102,12 +110,6 @@ container = Container <$>
       fromBinary (avroSchema (undefined :: FileHeader))
   <*> some (fromBinary (avroSchema (undefined :: Block)))
 
-parseContainer :: LB.ByteString -> Container
-parseContainer lb =
-  case runGetOrFail (fromBinary (avroSchema (undefined :: FileHeader))) lb of
-    Left (_, _, e) -> error e
-    Right (r, _, h) -> Container h (parseBlocks r)
-
 parseBlocks :: LB.ByteString -> [Block]
 parseBlocks lb
   | LB.null lb = []
@@ -115,3 +117,12 @@ parseBlocks lb
     case runGetOrFail (fromBinary (avroSchema (undefined :: Block))) lb of
       Left (_, _, e) -> error e
       Right (r, _, v) -> v:parseBlocks r
+
+parseContainer :: LB.ByteString -> Container
+parseContainer lb =
+  case runGetOrFail (fromBinary (avroSchema (undefined :: FileHeader))) lb of
+    Left (_, _, e) -> error e
+    Right (r, _, h) -> Container h (parseBlocks r)
+
+readAvroContainer :: FilePath -> IO Container
+readAvroContainer = fmap parseContainer . LB.readFile
