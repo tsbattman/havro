@@ -111,8 +111,8 @@ putAvroComplex (AvroUnion ix v _) = putAvroInt (fromIntegral ix) >> putAvro v
 
 getAvroComplex :: ComplexSchemaType -> Get ComplexType
 getAvroComplex (NamedSchema nm ns _ r) = AvroNamed nm ns <$> getAvroNamed r
-getAvroComplex (ArraySchema s) = AvroArray <$> getAvroBlocks (getAvro (toTypeSchema s))
-getAvroComplex (MapSchema s) = AvroMap <$> getAvroBlocks (getAvroKV (toTypeSchema s))
+getAvroComplex (ArraySchema s) = AvroArray <$> getAvroBlocks (getAvro $ toTypeSchema s)
+getAvroComplex (MapSchema s) = AvroMap <$> getAvroBlocks (getAvroKV $ toTypeSchema s)
 getAvroComplex (UnionSchema s) = do
   ix <- fromIntegral <$> getAvroInt
   AvroUnion ix <$> getAvro (toTypeSchema $ s !! ix) <*> pure s

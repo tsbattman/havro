@@ -95,11 +95,11 @@ instance ToAvro PrimitiveType where
 
 instance ToAvro ComplexType where
   avroSchema (AvroNamed nm ns r) = plainSchema $ case r of
-    AvroRecord f -> recordSchema nm ns [] $ map (\(fn, ft) -> recordField fn (toTypeSchema . avroSchema $ ft)) f
+    AvroRecord f -> recordSchema nm ns [] $ map (\(fn, ft) -> recordField fn (avroSchema ft)) f
     AvroEnum _ f -> enumSchema nm ns [] f
     AvroFixed f -> fixedSchema nm ns [] (BS.length f)
-  avroSchema (AvroArray f) = plainSchema . ComplexSchema $ ArraySchema (toTypeSchema . avroSchema . V.head . head $ f)
-  avroSchema (AvroMap f) = plainSchema . ComplexSchema $ MapSchema (toTypeSchema . avroSchema . snd . V.head . head $ f)
+  avroSchema (AvroArray f) = plainSchema . ComplexSchema $ ArraySchema (avroSchema . V.head . head $ f)
+  avroSchema (AvroMap f) = plainSchema . ComplexSchema $ MapSchema (avroSchema . snd . V.head . head $ f)
   avroSchema (AvroUnion _ _ f) = plainSchema . ComplexSchema $ UnionSchema f
   toAvro = AvroComplex
 

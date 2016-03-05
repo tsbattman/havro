@@ -29,7 +29,7 @@ library
       base >=4.8 && <4.9
     , aeson
     , binary
-    , bytestring
+    , bytestring >= 0.10 && < 0.11
     , containers
     , text
     , unordered-containers

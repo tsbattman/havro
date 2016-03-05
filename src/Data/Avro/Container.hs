@@ -58,9 +58,9 @@ headerMagic = Magic "Obj\x1"
 
 instance ToAvro FileHeader where
   avroSchema _ = plainSchema $ recordSchema "Header" (Just "org.apache.avro.file") [] [
-      recordField "magic" (toTypeSchema $ avroSchema (undefined :: Magic))
-    , recordField "meta" (ComplexSchema $ MapSchema (PrimitiveSchema BytesSchema))
-    , recordField "sync" (toTypeSchema $ avroSchema (undefined :: Sync))
+      recordField "magic" (avroSchema (undefined :: Magic))
+    , recordField "meta" (plainSchema . mapSchema $ plainSchema bytesSchema)
+    , recordField "sync" (avroSchema (undefined :: Sync))
     ]
   toAvro (FileHeader m s) = record  "Header" (Just "org.apache.avro.file") [
       ("magic", toAvro headerMagic)
@@ -86,9 +86,9 @@ data Block = Block {
 
 instance ToAvro Block where
   avroSchema _ = plainSchema $ recordSchema "Block" (Just "org.apache.avro.file") [] [
-      recordField "count" (PrimitiveSchema LongSchema)
-    , recordField "data" (PrimitiveSchema BytesSchema)
-    , recordField "sync" (toTypeSchema $ avroSchema (undefined :: Sync))
+      recordField "count" (plainSchema longSchema)
+    , recordField "data" (plainSchema bytesSchema)
+    , recordField "sync" (avroSchema (undefined :: Sync))
     ]
   toAvro (Block n bs sync) = record "Block" (Just "org.apache.avro.file") [
       ("count", toAvro n)
