@@ -28,6 +28,7 @@ module Data.Avro.Schema (
   , toTypeSchema
   ) where
 
+import Control.Applicative
 import Data.Monoid
 import Data.Maybe (fromMaybe)
 
@@ -196,8 +197,10 @@ instance ToJSON TypeSchema where
 
 instance FromJSON TypeSchema where
   parseJSON v@(String _) = PrimitiveSchema <$> parseJSON v
-  parseJSON v@(Object _) = ComplexSchema <$> parseJSON v
   parseJSON v@(Array _) = ComplexSchema <$> parseJSON v
+  parseJSON v@(Object o) =
+        maybe (fail "no primitive") (fmap PrimitiveSchema . parseJSON) (HashMap.lookup "type" o)
+    <|> (ComplexSchema <$> parseJSON v)
   parseJSON v = typeMismatch "type schema" v
 
 data Schema =
@@ -216,7 +219,14 @@ instance ToJSON Schema where
 
 instance FromJSON Schema where
   parseJSON v@(Array _) = TopUnion <$> parseJSON v
-  parseJSON v = WithAttributes <$> parseJSON v <*> pure (HashMap.fromList [])
+  parseJSON v@(String _) = WithAttributes <$> parseJSON v <*> pure (HashMap.fromList [])
+  parseJSON v@(Object o) = do
+    r <- parseJSON v
+    return $ case toJSON r of
+      Object ro -> WithAttributes r (HashMap.difference o ro)
+      String _ -> WithAttributes r (HashMap.delete "type" o)
+      _ -> error "schema can be string or object"
+  parseJSON v = typeMismatch "top level schema can be string, object, or array" v
 
 plainSchema :: TypeSchema -> Schema
 plainSchema = (`WithAttributes` HashMap.empty)
