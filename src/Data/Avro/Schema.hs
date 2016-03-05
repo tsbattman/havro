@@ -214,7 +214,7 @@ instance ToJSON Schema where
     | otherwise = case toJSON s of
         Object o -> Object $ o <> a
         String t -> Object $ HashMap.fromList ["type" .= t] <> a
-        _ -> error "only string or object supported for schema"
+        _ -> error "should not happen: only string or object supported for schema"
   toJSON (TopUnion s) = toJSON s
 
 instance FromJSON Schema where

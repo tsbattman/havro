@@ -5,6 +5,7 @@ module Data.Avro.Container (
   , Sync(..)
   , FileHeader(..)
   , dataSchema
+  , dataCodec
   , Block(..)
   , Container(..)
   , container
@@ -77,6 +78,17 @@ instance FromAvro FileHeader where
 
 dataSchema :: FileHeader -> Maybe Schema
 dataSchema = A.decode . LB.fromStrict <=< Map.lookup "avro.schema" . headerMeta
+
+data Codec = NullCodec | Deflate | Snappy | UserDefined BS.ByteString
+  deriving (Eq, Show, Read)
+
+dataCodec :: FileHeader -> Codec
+dataCodec = maybe NullCodec ascodec . Map.lookup "avro.codec" . headerMeta
+  where
+    ascodec "null" = NullCodec
+    ascodec "deflate" = Deflate
+    ascodec "snappy" = Snappy
+    ascodec v = UserDefined v
 
 data Block = Block {
     blockCount :: !Int
