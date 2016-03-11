@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 
 module Data.Avro.Container (
     Magic(..)
@@ -25,7 +26,9 @@ import Data.Aeson as A
 import Data.Binary
 import Data.Binary.Get
 import qualified Codec.Compression.Zlib.Raw as Zlib
+#ifdef _USE_SNAPPY
 import qualified Codec.Compression.Snappy.Lazy as Snappy
+#endif
 import qualified Data.Map as Map
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LB
@@ -94,7 +97,9 @@ predefinedCodecs :: Map.Map BS.ByteString Codec
 predefinedCodecs = Map.fromList [
     ("null", Codec id id)
   , ("deflate", Codec Zlib.compress Zlib.decompress)
+#ifdef _USE_SNAPPY
   , ("snappy", Codec Snappy.compress Snappy.decompress) -- TODO: Handle checksum
+#endif
   ]
 
 dataCodec :: FileHeader -> BS.ByteString

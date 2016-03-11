@@ -15,6 +15,10 @@ build-type:          Simple
 -- extra-source-files:
 cabal-version:       >=1.10
 
+Flag snappy
+  Description: Enable Snappy support
+  Default: False
+
 library
   exposed-modules:
       Data.Avro
@@ -27,12 +31,11 @@ library
   -- other-extensions:
   build-depends:
       base >=4.8 && <4.9
-    , aeson >= 0.10
-    , binary >= 0.8 && < 0.9
+    , aeson >= 0.9
+    , binary >= 0.7 && < 0.9
     , bytestring >= 0.10 && < 0.11
     , containers >= 0.5 && < 0.6
-    , snappy >= 0.2
-    , text
+    , text >= 1.2
     , unordered-containers >= 0.2 && < 0.3
     , vector
     , zlib >= 0.6 && < 0.7
@@ -40,6 +43,9 @@ library
   ghc-prof-options: -fprof-auto
   ghc-options: -Wall
   default-language:    Haskell2010
+  if flag(snappy)
+    build-depends: snappy >= 0.2
+    ghc-options: -D_USE_SNAPPY
 
 executable havreader
   main-is: Main.hs
