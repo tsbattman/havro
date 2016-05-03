@@ -13,6 +13,7 @@ module Data.Avro.Container (
   , Block(..)
   , Container(..)
   , container
+  , parseData
   , parseBlocks
   , parseContainer
   , readAvroContainer
@@ -139,6 +140,11 @@ container :: Get Container
 container = Container <$>
       fromBinary (avroSchema (undefined :: FileHeader))
   <*> some (fromBinary (avroSchema (undefined :: Block)))
+
+parseData :: FromAvro a => Schema -> LB.ByteString -> [a]
+parseData schema bs = case runGetOrFail (fromBinary schema) bs of
+  Left (_, _, e) -> error e
+  Right (r, _, v) -> v:parseData schema r
 
 parseBlocks :: LB.ByteString -> [Block]
 parseBlocks lb
