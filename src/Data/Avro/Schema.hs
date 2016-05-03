@@ -203,9 +203,7 @@ instance FromJSON TypeSchema where
     <|> (ComplexSchema <$> parseJSON v)
   parseJSON v = typeMismatch "type schema" v
 
-data Schema =
-    WithAttributes TypeSchema Object
-  | TopUnion [Schema]
+data Schema = WithAttributes TypeSchema Object
   deriving (Eq, Show, Read)
 
 instance ToJSON Schema where
@@ -215,11 +213,10 @@ instance ToJSON Schema where
         Object o -> Object $ o <> a
         String t -> Object $ HashMap.fromList ["type" .= t] <> a
         _ -> error "should not happen: only string or object supported for schema"
-  toJSON (TopUnion s) = toJSON s
 
 instance FromJSON Schema where
-  parseJSON v@(Array _) = TopUnion <$> parseJSON v
-  parseJSON v@(String _) = WithAttributes <$> parseJSON v <*> pure (HashMap.fromList [])
+  parseJSON v@(Array _) = WithAttributes <$> fmap ComplexSchema (parseJSON v) <*> pure HashMap.empty
+  parseJSON v@(String _) = WithAttributes <$> fmap PrimitiveSchema (parseJSON v) <*> pure HashMap.empty
   parseJSON v@(Object o) = do
     r <- parseJSON v
     return $ case toJSON r of
@@ -233,4 +230,3 @@ plainSchema = (`WithAttributes` HashMap.empty)
 
 toTypeSchema :: Schema -> TypeSchema
 toTypeSchema (WithAttributes s _) = s
-toTypeSchema (TopUnion s) = ComplexSchema $ UnionSchema s

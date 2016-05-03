@@ -31,66 +31,66 @@ class ToAvro a where
   toBinary = putAvro . toAvro
 
 instance ToAvro () where
-  avroSchema () = plainSchema $ PrimitiveSchema NullSchema
+  avroSchema () = plainSchema nullSchema
   toAvro () = AvroPrimitive AvroNull
 
 instance ToAvro Bool where
-  avroSchema _ = plainSchema $ PrimitiveSchema BoolSchema
+  avroSchema _ = plainSchema boolSchema
   toAvro = AvroPrimitive . AvroBool
 
 instance ToAvro Int32 where
-  avroSchema _ = plainSchema $ PrimitiveSchema IntSchema
+  avroSchema _ = plainSchema intSchema
   toAvro = AvroPrimitive . AvroInt
 
 instance ToAvro Int64 where
-  avroSchema _ = plainSchema $ PrimitiveSchema LongSchema
+  avroSchema _ = plainSchema longSchema
   toAvro = AvroPrimitive . AvroLong
 
 instance ToAvro Int where
-  avroSchema _ = plainSchema $ PrimitiveSchema LongSchema
+  avroSchema _ = plainSchema longSchema
   toAvro = AvroPrimitive . AvroLong . fromIntegral
 
 instance ToAvro Float where
-  avroSchema _ = plainSchema $ PrimitiveSchema FloatSchema
+  avroSchema _ = plainSchema floatSchema
   toAvro = AvroPrimitive . AvroFloat
 
 instance ToAvro Double where
-  avroSchema _ = plainSchema $ PrimitiveSchema DoubleSchema
+  avroSchema _ = plainSchema doubleSchema
   toAvro = AvroPrimitive . AvroDouble
 
 instance ToAvro BS.ByteString where
-  avroSchema _ = plainSchema $ PrimitiveSchema BytesSchema
+  avroSchema _ = plainSchema bytesSchema
   toAvro = AvroPrimitive . AvroBytes . LB.fromStrict
 
 instance ToAvro LB.ByteString where
-  avroSchema _ = plainSchema $ PrimitiveSchema BytesSchema
+  avroSchema _ = plainSchema bytesSchema
   toAvro = AvroPrimitive . AvroBytes
 
 instance ToAvro [Word8] where
-  avroSchema _ = plainSchema $ PrimitiveSchema BytesSchema
+  avroSchema _ = plainSchema bytesSchema
   toAvro = AvroPrimitive . AvroBytes . LB.pack
 
 instance ToAvro T.Text where
-  avroSchema _ = plainSchema $ PrimitiveSchema StringSchema
+  avroSchema _ = plainSchema stringSchema
   toAvro = AvroPrimitive . AvroString . LT.fromStrict
 
 instance ToAvro LT.Text where
-  avroSchema _ = plainSchema $ PrimitiveSchema StringSchema
+  avroSchema _ = plainSchema stringSchema
   toAvro = AvroPrimitive . AvroString
 
 instance ToAvro String where
-  avroSchema _ = plainSchema $ PrimitiveSchema StringSchema
+  avroSchema _ = plainSchema stringSchema
   toAvro = AvroPrimitive . AvroString . LT.pack
 
 instance ToAvro PrimitiveType where
-  avroSchema AvroNull = plainSchema $ PrimitiveSchema NullSchema
-  avroSchema (AvroBool _) = plainSchema $ PrimitiveSchema BoolSchema
-  avroSchema (AvroInt _) = plainSchema $ PrimitiveSchema IntSchema
-  avroSchema (AvroLong _) = plainSchema $ PrimitiveSchema LongSchema
-  avroSchema (AvroFloat _) = plainSchema $ PrimitiveSchema FloatSchema
-  avroSchema (AvroDouble _) = plainSchema $ PrimitiveSchema DoubleSchema
-  avroSchema (AvroBytes _) = plainSchema $ PrimitiveSchema BytesSchema
-  avroSchema (AvroString _) = plainSchema $ PrimitiveSchema StringSchema
+  avroSchema AvroNull = plainSchema nullSchema
+  avroSchema (AvroBool _) = plainSchema boolSchema
+  avroSchema (AvroInt _) = plainSchema intSchema
+  avroSchema (AvroLong _) = plainSchema longSchema
+  avroSchema (AvroFloat _) = plainSchema floatSchema
+  avroSchema (AvroDouble _) = plainSchema doubleSchema
+  avroSchema (AvroBytes _) = plainSchema bytesSchema
+  avroSchema (AvroString _) = plainSchema stringSchema
   toAvro = AvroPrimitive
 
 instance ToAvro ComplexType where

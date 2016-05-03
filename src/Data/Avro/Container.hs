@@ -110,7 +110,7 @@ lookupCodec h = Map.lookup (dataCodec h)
 
 data Block = Block {
     blockCount :: !Int
-  , blockData :: LB.ByteString
+  , blockData :: !LB.ByteString
   , blockSync :: !Sync
   } deriving (Eq, Show, Read)
 
