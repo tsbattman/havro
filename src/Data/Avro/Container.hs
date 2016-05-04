@@ -142,9 +142,12 @@ container = Container <$>
   <*> some (fromBinary (avroSchema (undefined :: Block)))
 
 parseData :: FromAvro a => Schema -> LB.ByteString -> [a]
-parseData schema bs = case runGetOrFail (fromBinary schema) bs of
-  Left (_, _, e) -> error e
-  Right (r, _, v) -> v:parseData schema r
+parseData schema lb
+  | LB.null lb = []
+  | otherwise =
+    case runGetOrFail (fromBinary schema) lb of
+      Left (_, _, e) -> error e
+      Right (r, _, v) -> v:parseData schema r
 
 parseBlocks :: LB.ByteString -> [Block]
 parseBlocks lb
